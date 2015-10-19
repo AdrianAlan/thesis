@@ -17,6 +17,12 @@ def clean():
     call(['sudo', 'mn', '-c'])
     return "Success"
 
+@app.route('/ping')
+def ping():
+    """Cleans the mess"""
+    simple.ping(NET, "h1", "h2")
+    return "Success"
+
 @app.route('/start/<topo>')
 def start(topo):
     """Starts network"""
