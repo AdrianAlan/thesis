@@ -17,10 +17,16 @@ def clean():
     call(['sudo', 'mn', '-c'])
     return "Success"
 
-@app.route('/ping')
-def ping():
-    """Cleans the mess"""
-    simple.ping(NET, "h1", "h2")
+@app.route('/link/<switch_a>/<switch_b>/<status>')
+def link(switch_a, switch_b, status):
+    """Changes link status"""
+    NET.configLinkStatus(switch_a, switch_b, status)
+    return "Success"
+
+@app.route('/ping/<src_host>/<dest_host>')
+def ping(src_host, dest_host):
+    """Ping between hosts"""
+    simple.ping(NET, str(src_host), str(dest_host))
     return "Success"
 
 @app.route('/start/<topo>')
