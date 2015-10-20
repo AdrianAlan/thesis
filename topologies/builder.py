@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 from mininet.net import Mininet
-#from mininet.node import OVSSwitch
 from mininet.topo import Topo
 from mininet.node import RemoteController
 from mininet.log import setLogLevel
@@ -9,16 +8,33 @@ from mininet.cli import CLI
 
 setLogLevel('info')
 
-def kpn():
-    net = Mininet(controller=RemoteController)
+def add_controller(net):
     net.addController('c0', controller=RemoteController, ip='10.0.3.11', port=6633)
 
+def simple(net):
+    switches = []
+    for i in range(4):
+        switches.append(net.addSwitch('s'+str(i + 1), protocols="OpenFlow13"))
+    hosts = []
+    for i in range(2):
+        hosts.append(net.addHost('h'+str(i+1)))
+
+    net.addLink(switches[0], hosts[0])
+    net.addLink(switches[3], hosts[1])
+    net.addLink(switches[0], switches[1])
+    net.addLink(switches[0], switches[2])
+    net.addLink(switches[3], switches[1])
+    net.addLink(switches[3], switches[2])
+    net.start()
+
+def kpnnl(net):
     switches = {}
     hosts = {}
     for i, p in enumerate(['Alkmaar', 'Amsterdam', 'Arnhem', 'Breda',
-                           'DenBosch', 'DenHaag', 'Eindhoven', 'Enschede', 'Groningen',
-                           'Heerlen', 'Hengelo', 'Leenwarden', 'Maastricht',
-                           'Rotterdam', 'Roermond', 'Utrecht', 'Venlo', 'Zwolle']):
+                           'DenBosch', 'DenHaag', 'Eindhoven', 'Enschede',
+                           'Groningen', 'Heerlen', 'Hengelo', 'Leenwarden',
+                           'Maastricht', 'Rotterdam', 'Roermond', 'Utrecht',
+                           'Venlo', 'Zwolle']):
         switches[p] = net.addSwitch('s' + str(i), protocols="OpenFlow13")
         hosts[p] = net.addHost('h' + str(i))
 
@@ -64,9 +80,42 @@ def kpn():
     net.addLink(switches['Rotterdam'], switches['Utrecht'])
     net.addLink(switches['Roermond'], switches['Venlo'])
     net.addLink(switches['Utrecht'], switches['Zwolle'])
+    net.start()
+
+def sprint(net):
+    switches = {}
+    hosts = {}
+    for i, p in enumerate(['Anaheim', 'Atalanta', 'Boulder', 'Cheyenne',
+                           'Chicago', 'Fort Worth', 'Kansas City', 'New York',
+                           'Seattle', 'Stockton', 'Washington']):
+        switches[p] = net.addSwitch('s' + str(i), protocols="OpenFlow13")
+        hosts[p] = net.addHost('h' + str(i))
+
+    for i in ['Anaheim', 'Atalanta', 'Boulder', 'Cheyenne', 'Chicago',
+              'Fort Worth', 'Kansas City', 'New York', 'Seattle', 'Stockton',
+              'Washington']):
+        net.addLink(switches[i], hosts[i])
+
+    # add connections between switches
+    net.addLink(switches['Anaheim'], switches['Fort Worth'])
+    net.addLink(switches['Anaheim'], switches['Stockton'])
+    net.addLink(switches['Atalanta'], switches['Fort Worth'])
+    net.addLink(switches['Atalanta'], switches['Washington'])
+    net.addLink(switches['Boulder'], switches['Cheyenne'])
+    net.addLink(switches['Cheyenne'], switches['Kansas City'])
+    net.addLink(switches['Cheyenne'], switches['Stockton'])
+    net.addLink(switches['Chicago'], switches['New York'])
+    net.addLink(switches['Chicago'], switches['Seattle'])
+    net.addLink(switches['Chicago'], switches['Stockton'])
+    net.addLink(switches['Fort Worth'], switches['Kansas City'])
+    net.addLink(switches['Fort Worth'], switches['Washington'])
+    net.addLink(switches['Kansas City'], switches['Washington'])
+    net.addLink(switches['New York'], switches['Stockton'])
+    net.addLink(switches['New York'], switches['Washington'])
+    net.addLink(switches['Seattle'], switches['Stockton'])
+    net.addLink(switches['Washington'], switches['Stockton'])
 
     net.start()
-    CLI(net)
-    net.stop()
 
-kpn()
+def ping(net, h1, h2):
+    net.custom_ping([net.get(h1), net.get(h2)])

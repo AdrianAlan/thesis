@@ -3,9 +3,7 @@ from flask import Flask
 from mininet.net import Mininet
 from mininet.node import RemoteController
 from subprocess import call
-from topologies import simple
-from topologies import kpnnl
-from topologies import sprint
+from topologies import builder
 
 app = Flask(__name__)
 VERSION = "0.0"
@@ -33,11 +31,13 @@ def ping(src_host, dest_host):
 def start(topo):
     """Starts network"""
     if topo == "simple":
-        simple.empty(NET)
+        builder.simple(NET)
     elif topo == "kpnnl":
-        kpnnl.kpn(NET)
+        builder.kpnnl(NET)
     elif topo == "sprint":
-        sprint.sprint(NET)
+        builder.sprint(NET)
+    else:
+        return "Nerwork not found"
     return "Success"
 
 @app.route('/stop')
