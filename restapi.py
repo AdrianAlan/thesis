@@ -13,23 +13,23 @@ NET = Mininet(controller=RemoteController)
 def clean():
     """Cleans the mess"""
     call(['sudo', 'mn', '-c'])
-    return "Success"
+    return "Success \n"
 
 @app.route('/link/<switch_a>/<switch_b>/<status>')
 def link(switch_a, switch_b, status):
     """Changes link status"""
     NET.configLinkStatus(switch_a, switch_b, status)
-    return "Success"
+    return "Success \n"
 
-@app.route('/ping/<src_host>/<dest_host>')
-def ping(src_host, dest_host):
+@app.route('/ping/<src_host>/<dest_host>/<interval>')
+def ping(src_host, dest_host, interval):
     """Ping between hosts"""
-    simple.ping(NET, str(src_host), str(dest_host))
-    return "Success"
+    return "Dropped: %s \n" % builder.ping(NET, str(src_host), str(dest_host), float(interval))
 
 @app.route('/start/<topo>')
 def start(topo):
     """Starts network"""
+    builder.add_controller(NET)
     if topo == "simple":
         builder.simple(NET)
     elif topo == "kpnnl":
@@ -38,18 +38,18 @@ def start(topo):
         builder.sprint(NET)
     else:
         return "Nerwork not found"
-    return "Success"
+    return "Success \n"
 
 @app.route('/stop')
 def stop():
     """Stops network and cleans"""
     NET.stop()
-    return "Success"
+    return "Success \n"
 
 @app.route('/version')
 def version():
     """Returns version"""
-    return ("Version %s\n" % VERSION)
+    return ("Version %s \n" % VERSION)
 
 if __name__ == '__main__':
     app.debug = True

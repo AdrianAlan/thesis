@@ -7,6 +7,7 @@ from mininet.log import setLogLevel
 from mininet.cli import CLI
 
 setLogLevel('info')
+FIX_TIME = 1
 
 def add_controller(net):
     net.addController('c0', controller=RemoteController, ip='10.0.3.11', port=6633)
@@ -93,7 +94,7 @@ def sprint(net):
 
     for i in ['Anaheim', 'Atalanta', 'Boulder', 'Cheyenne', 'Chicago',
               'Fort Worth', 'Kansas City', 'New York', 'Seattle', 'Stockton',
-              'Washington']):
+              'Washington']:
         net.addLink(switches[i], hosts[i])
 
     # add connections between switches
@@ -117,5 +118,5 @@ def sprint(net):
 
     net.start()
 
-def ping(net, h1, h2):
-    net.custom_ping([net.get(h1), net.get(h2)])
+def ping(net, h1, h2, i):
+    return net.custom_ping([net.getNodeByName(h1), net.getNodeByName(h2)], interval=i, count=FIX_TIME/i, timeout=2)
