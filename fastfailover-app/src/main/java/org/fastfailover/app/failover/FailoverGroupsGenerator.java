@@ -1,11 +1,16 @@
 package org.fastfailover.app.failover;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.fastfailover.app.models.Edge;
 import org.fastfailover.app.models.Vertex;
+import org.fastfailover.app.utils.Settings;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.topology.TopologyEdge;
@@ -13,7 +18,6 @@ import org.onosproject.net.topology.TopologyGraph;
 import org.onosproject.net.topology.TopologyVertex;
 
 public class FailoverGroupsGenerator {
-
 	private Map<String, FailoverGroupController> failoverGroupList = new HashMap<String, FailoverGroupController>();
 
 	public FailoverGroupsGenerator(DeviceId deviceIdFrom, DeviceId deviceIdTo, TopologyGraph topologyGraph,
@@ -46,10 +50,29 @@ public class FailoverGroupsGenerator {
 			PortNumber port = e.link().src().port();
 			Vertex vSrc = vertexMap.get(keySrc);
 			Vertex vDst = vertexMap.get(keyDst);
-			vSrc.addEdge(vDst, new Edge(vDst, port, 1));
+			vSrc.addEdge(vDst, new Edge(vDst, port, readWeight(vSrc, vDst)));
 		}
 
 		getGroups(fromVertex, toVertex, vertexMap, inputPort, srcMac, dstMac, 0);
+	}
+
+	private double readWeight(Vertex vSrc, Vertex vDst) {
+		if (!Settings.OPTIMIZATION) {
+			return 1;
+		}
+		try (BufferedReader br = new BufferedReader(new FileReader(Settings.NET_CONFIG))) {
+		    String line;
+		    while ((line = br.readLine()) != null) {
+		       if (line.startsWith(vSrc.toString() + "-" + vDst.toString())) {
+		    	   return new Double(line.split("::")[1]);
+		       }
+		    }
+		} catch (FileNotFoundException e) {
+			System.out.println("No configuration found in " + Settings.NET_CONFIG);
+		} catch (IOException e) {
+			System.out.println("Incorrect file formatting in " + Settings.NET_CONFIG);
+		}
+		return 10;
 	}
 
 	private void tearDownConnection(Vertex fromVertex, Vertex toVertex, Map<String, Vertex> vertexMap, long inputPort,
@@ -80,7 +103,7 @@ public class FailoverGroupsGenerator {
 					Vertex vSrc = newVertexMap.get(src);
 					Vertex vDst = newVertexMap.get(dst);
 					PortNumber port = e.getPortNumber();
-					vSrc.addEdge(vDst, new Edge(vDst, port, 1));
+					vSrc.addEdge(vDst, new Edge(vDst, port, readWeight(vSrc, vDst)));
 				}
 			}
 		}
@@ -94,7 +117,7 @@ public class FailoverGroupsGenerator {
 		da.computePaths(fromVertex);
 		List<Vertex> path = da.getShortestPathTo(toVertex);
 
-		if (path.size() < 2 || depth > 10) {
+		if (path.size() < 2 || depth > 5) {
 			return;
 		}
 

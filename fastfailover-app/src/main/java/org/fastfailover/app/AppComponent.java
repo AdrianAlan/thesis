@@ -18,7 +18,6 @@ import org.onosproject.core.CoreService;
 import org.onosproject.event.Event;
 import org.onosproject.net.Host;
 import org.onosproject.net.HostId;
-import org.onosproject.net.Path;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.DefaultTrafficSelector;
 import org.onosproject.net.flow.DefaultTrafficTreatment;
@@ -38,14 +37,14 @@ import org.onosproject.net.packet.PacketPriority;
 import org.onosproject.net.packet.PacketProcessor;
 import org.onosproject.net.packet.PacketService;
 import org.onosproject.net.topology.TopologyEvent;
+import org.onosproject.net.topology.TopologyGraph;
 import org.onosproject.net.topology.TopologyListener;
 import org.onosproject.net.topology.TopologyService;
 import org.onosproject.net.topology.TopologyVertex;
 import org.slf4j.Logger;
+
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-
 import org.slf4j.LoggerFactory;
 
 /**
@@ -55,7 +54,6 @@ import org.slf4j.LoggerFactory;
  */
 @Component(immediate = true)
 public class AppComponent {
-
 
 	// References
 	@Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
@@ -75,8 +73,11 @@ public class AppComponent {
 
 	private final Logger log = LoggerFactory.getLogger(getClass());
 	private final TopologyListener topologyListener = new InternalTopologyListener();
-	private ApplicationId appId;
+
 	private ReactivePacketProcessor processor = new ReactivePacketProcessor();
+
+	public static ApplicationId appId;
+	public static TopologyGraph topologyGraph;
 
 	@Activate
 	protected void activate() {
@@ -84,8 +85,9 @@ public class AppComponent {
 		packetService.addProcessor(processor, PacketProcessor.director(2));
 		topologyService.addListener(topologyListener);
 		requestIntercepts();
-		BFDUtils.getBFDDetails(topologyService.getGraph(topologyService.currentTopology()).getEdges(), appId, log);
-		log.info("Started Completed", appId.id());
+		topologyGraph = topologyService.getGraph(topologyService.currentTopology());
+		BFDUtils.getBFDDetails(topologyGraph.getEdges(), appId, log);
+		log.info("Start Completed", appId.id());
 	}
 
 	@Deactivate
@@ -181,16 +183,6 @@ public class AppComponent {
 				return;
 			}
 
-			// Otherwise, get a set of paths that lead from here to the
-			// destination edge switch.
-			/*Set<Path> paths = topologyService.getPaths(topologyService.currentTopology(), pkt.receivedFrom().deviceId(),
-					dst.location().deviceId());
-			if (paths.isEmpty()) {
-				// If there are no paths, flood and bail.
-				flood(context);
-				return;
-			}
-		*/
 			FailoverGroupsGenerator fgg = new FailoverGroupsGenerator(pkt.receivedFrom().deviceId(),
 					dst.location().deviceId(), topologyService.getGraph(topologyService.currentTopology()),
 					context.inPacket().receivedFrom().port().toLong(), pkt.parsed().getSourceMAC().toString(),
@@ -278,6 +270,28 @@ public class AppComponent {
 		packetOut(context, portNumber);
 	}
 
+	private void Removal() {
+		for (TopologyVertex v : topologyService.getGraph(topologyService.currentTopology()).getVertexes()) {
+			for (Group g : groupService.getGroups(v.deviceId())) {
+				groupService.removeGroup(v.deviceId(), g.appCookie(), appId);
+			}
+		}
+		flowRuleService.removeFlowRulesById(appId);
+	}
+
+	public class MyThread extends Thread {
+		public void run() {
+			try {
+				Thread.sleep(Settings.RESTORATION_TIME);	    
+			} catch(InterruptedException ex) {
+				log.info("Interrupted");
+			    Thread.currentThread().interrupt();
+			}
+			log.info("Running");
+			Removal();
+		}
+	}
+	
 	private class InternalTopologyListener implements TopologyListener {
 		@Override
 		public void event(TopologyEvent event) {
@@ -286,8 +300,14 @@ public class AppComponent {
 				reasons.forEach(re -> {
 					if (re instanceof LinkEvent) {
 						LinkEvent le = (LinkEvent) re;
+						MyThread myThread = new MyThread();
 						if (le.type() == LinkEvent.Type.LINK_REMOVED) {
-							log.info("Topology Event");
+							log.info("Restoration procedure");
+							myThread.start();
+						}
+						if (le.type() == LinkEvent.Type.LINK_ADDED) {
+							log.info("Cancel Restoration");
+							myThread.interrupt();
 						}
 					}
 				});

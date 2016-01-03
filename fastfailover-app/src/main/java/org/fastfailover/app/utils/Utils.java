@@ -1,7 +1,9 @@
 package org.fastfailover.app.utils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.onlab.packet.MacAddress;
 import org.onosproject.core.ApplicationId;
@@ -27,34 +29,27 @@ public class Utils {
 
 	// CHANGE SETTINGS HERE:
 	public static int uniqueGroupNumber = 0;
+	public static Map<Integer, ForwardingObjective> tf = new HashMap<Integer, ForwardingObjective>();
 
-	/*
-	 * public static String parseDeviceID(String of) { return "s" +
-	 * Integer.parseInt(of.substring(3)); }
-	 */
-
-	public static ForwardingObjective insertStaticRuleForPort(String srcMac, String dstMac, int inputPort,
-			int outputPort, ApplicationId appId) {
+	public static ForwardingObjective insertStaticRuleForFirewall(String srcMac, String dstMac, ApplicationId appId) {
 		// macs and ports
 		MacAddress ffSourceMAC = MacAddress.valueOf(srcMac);
 		MacAddress ffDestinationMAC = MacAddress.valueOf(dstMac);
-		PortNumber ffInPortNumber = PortNumber.portNumber(inputPort);
-		PortNumber ffOutPortNumber = PortNumber.portNumber(outputPort);
 
 		// generate selector
 		TrafficSelector.Builder ffSelectorBuilder = DefaultTrafficSelector.builder();
-		ffSelectorBuilder.matchInPort(ffInPortNumber).matchEthSrc(ffSourceMAC).matchEthDst(ffDestinationMAC);
+		ffSelectorBuilder.matchEthSrc(ffSourceMAC).matchEthDst(ffDestinationMAC);
 
 		// generate treatment
-		TrafficTreatment ffTreatment = DefaultTrafficTreatment.builder().setOutput(ffOutPortNumber).build();
+		TrafficTreatment ffTreatment = DefaultTrafficTreatment.builder().drop().build();
 		ForwardingObjective ffForwardingObjective = DefaultForwardingObjective.builder()
-				.withSelector(ffSelectorBuilder.build()).withTreatment(ffTreatment).withPriority(Settings.DEFAULT_PRIORITY)
+				.withSelector(ffSelectorBuilder.build()).withTreatment(ffTreatment).withPriority(Settings.MAX_PRIORITY)
 				.withFlag(ForwardingObjective.Flag.VERSATILE).fromApp(appId).add();
 		return ffForwardingObjective;
 	}
 
-	public static ForwardingObjective insertStaticRuleForGroup(String srcMac, String dstMac, String inputPort,
-			int i, ApplicationId appId) {
+	public static ForwardingObjective insertStaticRuleForGroup(String srcMac, String dstMac, String inputPort, int i,
+			ApplicationId appId) {
 		// macs and ports
 		MacAddress ffSourceMAC = MacAddress.valueOf(srcMac);
 		MacAddress ffDestinationMAC = MacAddress.valueOf(dstMac);
@@ -64,22 +59,22 @@ public class Utils {
 		// generate selector
 		TrafficSelector.Builder ffSelectorBuilder = DefaultTrafficSelector.builder();
 		ffSelectorBuilder.matchInPort(ffInPortNumber).matchEthSrc(ffSourceMAC).matchEthDst(ffDestinationMAC);
-
 		// generate treatment
 		TrafficTreatment ffTreatment = DefaultTrafficTreatment.builder().group(id).build();
 		ForwardingObjective ffForwardingObjective = DefaultForwardingObjective.builder()
-				.withSelector(ffSelectorBuilder.build()).withTreatment(ffTreatment).withPriority(Settings.DEFAULT_PRIORITY)
-				.withFlag(ForwardingObjective.Flag.VERSATILE).fromApp(appId).add();
+				.withSelector(ffSelectorBuilder.build()).withTreatment(ffTreatment)
+				.withPriority(Settings.DEFAULT_PRIORITY).withFlag(ForwardingObjective.Flag.VERSATILE).fromApp(appId)
+				.add();
+		tf.put(i, ffForwardingObjective);
 		return ffForwardingObjective;
 	}
 
 	public static GroupDescription insertGroupRule(List<String> ports, String deviceId, int groupId,
 			ApplicationId appId, String inputPort) {
-		//PortNumber.IN_PORT;
 		// generate first choice port and backup port
 		DeviceId ffDeviceId = DeviceId.deviceId(deviceId);
 		List<GroupBucket> buckets = new ArrayList<GroupBucket>();
-		for (int i=0; i < ports.size(); i++) {
+		for (int i = 0; i < ports.size(); i++) {
 			PortNumber portNumberWatch = PortNumber.portNumber(ports.get(i));
 			PortNumber portNumberForward;
 			if (ports.get(i).equals(inputPort)) {
@@ -88,16 +83,32 @@ public class Utils {
 				portNumberForward = PortNumber.portNumber(ports.get(i));
 			}
 			TrafficTreatment treatment = DefaultTrafficTreatment.builder().setOutput(portNumberForward).build();
-			GroupBucket bucket = DefaultGroupBucket.createFailoverGroupBucket(treatment, portNumberWatch,
-					null);
+			GroupBucket bucket = DefaultGroupBucket.createFailoverGroupBucket(treatment, portNumberWatch, null);
 			buckets.add(bucket);
 		}
-		
+
 		GroupBuckets groupBuckets = new GroupBuckets(buckets);
 		// group handling
 		GroupKey groupKey = new DefaultGroupKey((groupId + "").getBytes());
 		GroupDescription groupDesc = new DefaultGroupDescription(ffDeviceId, GroupDescription.Type.FAILOVER,
 				groupBuckets, groupKey, groupId, appId);
 		return groupDesc;
+	}
+
+	public static GroupDescription getSelectGroupDescription(DeviceId device, GroupBuckets buckets, String arg2,
+			ApplicationId appId) {
+		GroupDescription groupDsc = new DefaultGroupDescription(device, GroupDescription.Type.SELECT, buckets,
+				new DefaultGroupKey(arg2.getBytes()), new Integer(arg2), appId);
+		return groupDsc;
+	}
+
+	public static ForwardingObjective getSelectGroupFlowRule(TrafficSelector ffSelectorBuilder, GroupId groupId,
+			ApplicationId appId) {
+		TrafficTreatment ffTreatment = DefaultTrafficTreatment.builder().group(groupId).build();
+		ForwardingObjective ffForwardingObjective = DefaultForwardingObjective.builder()
+				.withSelector(ffSelectorBuilder).withTreatment(ffTreatment)
+				.withPriority(Settings.DEFAULT_PRIORITY).withFlag(ForwardingObjective.Flag.VERSATILE).fromApp(appId)
+				.add();
+		return ffForwardingObjective;
 	}
 }

@@ -21,11 +21,6 @@ def link(switch_a, switch_b, status):
     NET.configLinkStatus(switch_a, switch_b, status)
     return "Success \n"
 
-@app.route('/ping/<src_host>/<dest_host>/<interval>')
-def ping(src_host, dest_host, interval):
-    """Ping between hosts"""
-    return "Dropped: %s \n" % builder.ping(NET, str(src_host), str(dest_host), float(interval))
-
 @app.route('/start/<topo>')
 def start(topo):
     """Starts network"""
