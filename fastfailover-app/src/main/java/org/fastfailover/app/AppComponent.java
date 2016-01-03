@@ -279,7 +279,7 @@ public class AppComponent {
 		flowRuleService.removeFlowRulesById(appId);
 	}
 
-	public class MyThread extends Thread {
+	public class RestorationUtils extends Thread {
 		public void run() {
 			try {
 				Thread.sleep(Settings.RESTORATION_TIME);	    
@@ -300,14 +300,14 @@ public class AppComponent {
 				reasons.forEach(re -> {
 					if (re instanceof LinkEvent) {
 						LinkEvent le = (LinkEvent) re;
-						MyThread myThread = new MyThread();
+						RestorationUtils ru = new RestorationUtils();
 						if (le.type() == LinkEvent.Type.LINK_REMOVED) {
 							log.info("Restoration procedure");
-							myThread.start();
+							ru.start();
 						}
 						if (le.type() == LinkEvent.Type.LINK_ADDED) {
 							log.info("Cancel Restoration");
-							myThread.interrupt();
+							ru.interrupt();
 						}
 					}
 				});
